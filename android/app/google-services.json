@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "903915356477",
+    "project_id": "kaspi-e5b1c",
+    "storage_bucket": "kaspi-e5b1c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:903915356477:android:cd0cc73a9717a0a4118554",
+        "android_client_info": {
+          "package_name": "com.example.kaspi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "903915356477-0pg7gqucg0ngii2hgkbipmhlt2b4ith3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.kaspi",
+            "certificate_hash": "4be14efd445477c5538cdc549b06b32a2647dca9"
+          }
+        },
+        {
+          "client_id": "903915356477-fbgh3uilsmmsk026e80l1t6a95vcc3ni.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCaX4PuZelzhvN66lpK_KSxtD2qJPixR-0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "903915356477-fbgh3uilsmmsk026e80l1t6a95vcc3ni.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
