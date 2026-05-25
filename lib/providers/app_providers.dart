@@ -1,9 +1,8 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,11 +13,11 @@ import '../models/transfer_models.dart';
 import '../services/auth_service.dart';
 import '../services/avatar_image_processor.dart';
 import '../services/avatar_upload_exception.dart';
+import '../services/cloudinary_upload_service.dart';
 import '../services/firestore_service.dart';
 import '../services/photo_permission_service.dart';
 import '../services/session_storage_service.dart';
 import '../services/locale_storage_service.dart';
-import '../services/storage_service.dart';
 import '../utils/phone_utils.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>(
@@ -26,9 +25,6 @@ final firebaseAuthProvider = Provider<FirebaseAuth>(
 );
 final firestoreProvider = Provider<FirebaseFirestore>(
   (ref) => FirebaseFirestore.instance,
-);
-final storageProvider = Provider<FirebaseStorage>(
-  (ref) => FirebaseStorage.instance,
 );
 final secureStorageProvider = Provider<FlutterSecureStorage>(
   (ref) => const FlutterSecureStorage(),
@@ -40,8 +36,8 @@ final authServiceProvider = Provider<AuthService>(
 final firestoreServiceProvider = Provider<FirestoreService>(
   (ref) => FirestoreService(ref.watch(firestoreProvider)),
 );
-final storageServiceProvider = Provider<StorageService>(
-  (ref) => StorageService(ref.watch(storageProvider)),
+final cloudinaryUploadServiceProvider = Provider<CloudinaryUploadService>(
+  (ref) => CloudinaryUploadService(),
 );
 final sessionStorageServiceProvider = Provider<SessionStorageService>(
   (ref) => SessionStorageService(ref.watch(secureStorageProvider)),
@@ -611,8 +607,8 @@ class AppActions {
     return _firestore.updateProfile(uid, profile);
   }
 
-  /// Picks a gallery photo, uploads to Storage, saves URL in Firestore.
-  /// Returns the new download URL, or null if the user cancelled picking.
+  /// Picks a gallery photo, uploads it to Cloudinary, and saves the URL.
+  /// Returns the new image URL, or null if the user cancelled picking.
   Future<String?> changeAvatar() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     final uid = currentUser?.uid ?? _uidOrNull;
@@ -655,10 +651,6 @@ class AppActions {
         );
       }
 
-      final file = File(picked.path);
-      final fileExists = await file.exists();
-      print('Picked avatar file exists: $fileExists');
-
       final bytes = await picked.readAsBytes();
       print('Picked avatar bytes length: ${bytes.length}');
       if (bytes.isEmpty) {
@@ -670,59 +662,31 @@ class AppActions {
       final processedBytes = AvatarImageProcessor().process(bytes);
       print('Processed avatar bytes length: ${processedBytes.length}');
 
-      final storage = ref.read(storageServiceProvider);
-      String downloadUrl;
-      if (fileExists) {
-        try {
-          downloadUrl = await storage.uploadProfilePhotoFile(
-            uid: uid,
-            file: file,
-          );
-        } catch (error) {
-          print(
-            'Avatar putFile failed, retrying with putData bytes upload: $error',
-          );
-          downloadUrl = await storage.uploadProfilePhoto(
-            uid: uid,
-            data: processedBytes,
-          );
-        }
-      } else {
-        downloadUrl = await storage.uploadProfilePhoto(
-          uid: uid,
-          data: processedBytes,
-        );
-      }
+      final secureUrl = await ref
+          .read(cloudinaryUploadServiceProvider)
+          .uploadAvatar(uid: uid, data: processedBytes);
 
-      if (downloadUrl.trim().isEmpty) {
+      if (secureUrl.trim().isEmpty) {
         throw const AvatarUploadException(
-          'Firebase Storage вернул пустой download URL.',
+          'Cloudinary вернул пустой URL изображения.',
         );
       }
 
-      final cacheBustedUrl = _appendCacheBuster(downloadUrl);
-      print('Avatar cache-busted URL: $cacheBustedUrl');
+      final cacheBustedUrl = _appendCacheBuster(secureUrl);
+      print('Avatar secure URL: $secureUrl');
+      print('Avatar cache-busted UI URL: $cacheBustedUrl');
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'avatarUrl': cacheBustedUrl,
-        'photoURL': cacheBustedUrl,
-        'avatarUpdatedAt': FieldValue.serverTimestamp(),
-      });
+      await _firestore.updatePhotoUrl(uid, secureUrl);
       print('Avatar URL saved to Firestore for uid=$uid');
 
       if (currentUser != null) {
-        await currentUser.updatePhotoURL(cacheBustedUrl);
+        await currentUser.updatePhotoURL(secureUrl);
         print('Avatar URL saved to FirebaseAuth profile for uid=$uid');
       }
 
       ref.invalidate(currentUserProfileProvider);
 
       return cacheBustedUrl;
-    } on FirebaseException catch (error) {
-      print(
-        'FirebaseStorageException in changeAvatar: code=${error.code}, message=${error.message}',
-      );
-      throw AvatarUploadException(_mapStorageError(error), code: error.code);
     } on FormatException catch (error) {
       print('Avatar processing exception: $error');
       throw AvatarUploadException(error.message);
@@ -736,35 +700,20 @@ class AppActions {
       if (error is AvatarUploadException) {
         rethrow;
       }
-      throw AvatarUploadException(
-        'Не удалось загрузить фото: $error',
-      );
+      throw AvatarUploadException('Не удалось загрузить фото: $error');
     }
   }
 
   String _appendCacheBuster(String url) {
     final uri = Uri.parse(url);
-    return uri.replace(
-      queryParameters: <String, String>{
-        ...uri.queryParameters,
-        'v': DateTime.now().millisecondsSinceEpoch.toString(),
-      },
-    ).toString();
-  }
-
-  String _mapStorageError(FirebaseException error) {
-    switch (error.code) {
-      case 'unauthorized':
-      case 'permission-denied':
-        return 'Нет доступа к Firebase Storage. Проверьте авторизацию и правила Storage.';
-      case 'canceled':
-        return 'Загрузка отменена';
-      case 'retry-limit-exceeded':
-        return 'Слабое соединение. Повторите загрузку позже.';
-      default:
-        return error.message ??
-            'Ошибка загрузки фото в Firebase Storage (${error.code})';
-    }
+    return uri
+        .replace(
+          queryParameters: <String, String>{
+            ...uri.queryParameters,
+            'v': DateTime.now().millisecondsSinceEpoch.toString(),
+          },
+        )
+        .toString();
   }
 }
 

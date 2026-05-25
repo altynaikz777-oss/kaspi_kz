@@ -432,6 +432,7 @@ class FirestoreService {
     return _db.collection('users').doc(uid).set({
       'photoURL': photoUrl,
       'avatarUrl': photoUrl,
+      'avatarUpdatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
