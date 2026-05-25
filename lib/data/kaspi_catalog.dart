@@ -121,7 +121,7 @@ const kaspiServices = <KaspiServiceItem>[
     title: 'Переводы',
     subtitle: 'Отправить деньги',
     icon: Icons.swap_horiz_rounded,
-    route: '/services/transfers',
+    route: '/home/transfers',
     keywords: ['перевод', 'отправить', 'деньги', 'контакт'],
     gradient: [Color(0xFFEA580C), Color(0xFFFDBA74)],
   ),
@@ -247,7 +247,7 @@ const kaspiBankCards = <KaspiBankCardItem>[
     subtitle: 'Основная карта',
     gradient: [Color(0xFFE8C882), Color(0xFFD4A361)],
     icon: Icons.people_outline_rounded,
-    route: '/services/transfers',
+    route: '/home/transfers',
   ),
   KaspiBankCardItem(
     title: 'Накопительный Депозит',
@@ -311,7 +311,7 @@ const kaspiHomeQuickActions = <KaspiHomeQuickAction>[
   KaspiHomeQuickAction(
     label: 'Переводы',
     icon: Icons.swap_horiz_outlined,
-    route: '/services/transfers',
+    route: '/home/transfers',
   ),
   KaspiHomeQuickAction(
     label: 'Magnum',
@@ -517,7 +517,7 @@ const kaspiServicesMenuGrid = <KaspiMenuGridItem>[
   KaspiMenuGridItem(
     label: 'Переводы',
     icon: Icons.sync_rounded,
-    route: '/services/transfers',
+    route: '/home/transfers',
   ),
   KaspiMenuGridItem(
     label: 'Акции',
@@ -586,7 +586,7 @@ const kaspiTransferOptions = <KaspiTransferOption>[
     title: 'Клиенту Kaspi',
     subtitle: 'На карту Kaspi Gold',
     icon: Icons.person_outline_rounded,
-    route: '/services/transfers/client',
+    route: '/home/transfers/client',
   ),
   KaspiTransferOption(
     title: 'Карта другого банка',

@@ -15,14 +15,32 @@ class StorageService {
     required Uint8List data,
   }) async {
     final ref = _storage.ref(avatarPath(uid));
-    await ref.putData(
-      data,
-      SettableMetadata(
-        contentType: 'image/jpeg',
-        cacheControl: 'public,max-age=3600',
-      ),
+    print(
+      'Avatar upload started via putData: path=${ref.fullPath}, bytes=${data.length}',
     );
-    return ref.getDownloadURL();
+    try {
+      final snapshot = await ref.putData(
+        data,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl: 'public,max-age=3600',
+        ),
+      );
+      print(
+        'Avatar upload completed via putData: path=${ref.fullPath}, state=${snapshot.state}',
+      );
+      final downloadUrl = await ref.getDownloadURL();
+      print('Avatar download URL retrieved: $downloadUrl');
+      return downloadUrl;
+    } on FirebaseException catch (error) {
+      print(
+        'FirebaseStorageException during putData: code=${error.code}, message=${error.message}',
+      );
+      rethrow;
+    } catch (error) {
+      print('Avatar upload exception during putData: $error');
+      rethrow;
+    }
   }
 
   Future<String> uploadProfilePhotoFile({
@@ -30,13 +48,31 @@ class StorageService {
     required File file,
   }) async {
     final ref = _storage.ref(avatarPath(uid));
-    await ref.putFile(
-      file,
-      SettableMetadata(
-        contentType: 'image/jpeg',
-        cacheControl: 'public,max-age=3600',
-      ),
+    print(
+      'Avatar upload started via putFile: localPath=${file.path}, storagePath=${ref.fullPath}',
     );
-    return ref.getDownloadURL();
+    try {
+      final snapshot = await ref.putFile(
+        file,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl: 'public,max-age=3600',
+        ),
+      );
+      print(
+        'Avatar upload completed via putFile: path=${ref.fullPath}, state=${snapshot.state}',
+      );
+      final downloadUrl = await ref.getDownloadURL();
+      print('Avatar download URL retrieved: $downloadUrl');
+      return downloadUrl;
+    } on FirebaseException catch (error) {
+      print(
+        'FirebaseStorageException during putFile: code=${error.code}, message=${error.message}',
+      );
+      rethrow;
+    } catch (error) {
+      print('Avatar upload exception during putFile: $error');
+      rethrow;
+    }
   }
 }

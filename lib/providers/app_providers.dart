@@ -12,6 +12,7 @@ import '../models/auth_models.dart';
 import '../models/app_models.dart';
 import '../models/transfer_models.dart';
 import '../services/auth_service.dart';
+import '../services/avatar_image_processor.dart';
 import '../services/avatar_upload_exception.dart';
 import '../services/firestore_service.dart';
 import '../services/photo_permission_service.dart';
@@ -624,6 +625,7 @@ class AppActions {
     final permissionState = await ref
         .read(photoPermissionServiceProvider)
         .ensureGalleryAccess();
+    print('Avatar permission state: $permissionState');
     if (permissionState == PhotoAccessState.permanentlyDenied ||
         permissionState == PhotoAccessState.denied) {
       throw const AvatarUploadException(
@@ -641,44 +643,101 @@ class AppActions {
           imageQuality: 80,
         );
     if (picked == null) {
+      print('Avatar picker cancelled: pickedFile == null');
       return null;
     }
 
     try {
+      print('Picked avatar image path: ${picked.path}');
       if (picked.path.isEmpty) {
-        throw const AvatarUploadException('Не удалось получить выбранное фото');
+        throw const AvatarUploadException(
+          'Не удалось получить путь к выбранному фото.',
+        );
       }
 
       final file = File(picked.path);
-      final downloadUrl = await ref
-          .read(storageServiceProvider)
-          .uploadProfilePhotoFile(
+      final fileExists = await file.exists();
+      print('Picked avatar file exists: $fileExists');
+
+      final bytes = await picked.readAsBytes();
+      print('Picked avatar bytes length: ${bytes.length}');
+      if (bytes.isEmpty) {
+        throw const AvatarUploadException(
+          'Выбранное фото пустое или недоступно для загрузки.',
+        );
+      }
+
+      final processedBytes = AvatarImageProcessor().process(bytes);
+      print('Processed avatar bytes length: ${processedBytes.length}');
+
+      final storage = ref.read(storageServiceProvider);
+      String downloadUrl;
+      if (fileExists) {
+        try {
+          downloadUrl = await storage.uploadProfilePhotoFile(
             uid: uid,
             file: file,
           );
+        } catch (error) {
+          print(
+            'Avatar putFile failed, retrying with putData bytes upload: $error',
+          );
+          downloadUrl = await storage.uploadProfilePhoto(
+            uid: uid,
+            data: processedBytes,
+          );
+        }
+      } else {
+        downloadUrl = await storage.uploadProfilePhoto(
+          uid: uid,
+          data: processedBytes,
+        );
+      }
+
+      if (downloadUrl.trim().isEmpty) {
+        throw const AvatarUploadException(
+          'Firebase Storage вернул пустой download URL.',
+        );
+      }
+
       final cacheBustedUrl = _appendCacheBuster(downloadUrl);
+      print('Avatar cache-busted URL: $cacheBustedUrl');
 
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'avatarUrl': cacheBustedUrl,
         'photoURL': cacheBustedUrl,
         'avatarUpdatedAt': FieldValue.serverTimestamp(),
       });
+      print('Avatar URL saved to Firestore for uid=$uid');
 
       if (currentUser != null) {
         await currentUser.updatePhotoURL(cacheBustedUrl);
+        print('Avatar URL saved to FirebaseAuth profile for uid=$uid');
       }
 
       ref.invalidate(currentUserProfileProvider);
 
       return cacheBustedUrl;
     } on FirebaseException catch (error) {
+      print(
+        'FirebaseStorageException in changeAvatar: code=${error.code}, message=${error.message}',
+      );
       throw AvatarUploadException(_mapStorageError(error), code: error.code);
+    } on FormatException catch (error) {
+      print('Avatar processing exception: $error');
+      throw AvatarUploadException(error.message);
+    } on FileSystemException catch (error) {
+      print('Avatar file exception: $error');
+      throw AvatarUploadException(
+        'Не удалось прочитать выбранное фото: ${error.message}',
+      );
     } catch (error) {
+      print('Avatar upload exception: $error');
       if (error is AvatarUploadException) {
         rethrow;
       }
       throw AvatarUploadException(
-        'Не удалось загрузить фото. Попробуйте ещё раз.',
+        'Не удалось загрузить фото: $error',
       );
     }
   }
@@ -697,13 +756,14 @@ class AppActions {
     switch (error.code) {
       case 'unauthorized':
       case 'permission-denied':
-        return 'Нет доступа к хранилищу. Проверьте правила Firebase Storage.';
+        return 'Нет доступа к Firebase Storage. Проверьте авторизацию и правила Storage.';
       case 'canceled':
         return 'Загрузка отменена';
       case 'retry-limit-exceeded':
         return 'Слабое соединение. Повторите загрузку позже.';
       default:
-        return error.message ?? 'Ошибка загрузки фото в Firebase Storage';
+        return error.message ??
+            'Ошибка загрузки фото в Firebase Storage (${error.code})';
     }
   }
 }

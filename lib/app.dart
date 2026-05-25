@@ -76,10 +76,10 @@ supportedLocales: const [
 }
 
 bool _isTransferFlowPath(String path) =>
-    path.startsWith('/services/transfers');
+    path.startsWith('/home/transfers');
 
 bool _isTransferSuccessPath(String path) =>
-    path == '/services/transfers/client/success';
+    path == '/home/transfers/client/confirm/success';
 
 /// Keeps GoRouter instance stable when profile/balance updates after a transfer.
 class _RouterRefreshListenable extends ChangeNotifier {
@@ -165,6 +165,43 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/home',
                 builder: (context, state) => const HomeScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'transfers',
+                    name: '/home/transfers',
+                    builder: (context, state) =>
+                        const TransfersServiceScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'client',
+                        name: '/home/transfers/client',
+                        builder: (context, state) =>
+                            const TransferToClientScreen(),
+                        routes: [
+                          GoRoute(
+                            path: 'confirm',
+                            name: '/home/transfers/client/confirm',
+                            builder: (context, state) {
+                              final draft = state.extra as TransferDraft?;
+                              if (draft == null) {
+                                return const TransferToClientScreen();
+                              }
+                              return TransferConfirmScreen(draft: draft);
+                            },
+                            routes: [
+                              GoRoute(
+                                path: 'success',
+                                name: '/home/transfers/client/confirm/success',
+                                builder: (context, state) =>
+                                    const TransferSuccessScreen(),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -217,28 +254,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/services/magnum',
         builder: (context, state) => const MagnumServiceScreen(),
-      ),
-      GoRoute(
-        path: '/services/transfers',
-        builder: (context, state) => const TransfersServiceScreen(),
-      ),
-      GoRoute(
-        path: '/services/transfers/client',
-        builder: (context, state) => const TransferToClientScreen(),
-      ),
-      GoRoute(
-        path: '/services/transfers/client/confirm',
-        builder: (context, state) {
-          final draft = state.extra as TransferDraft?;
-          if (draft == null) {
-            return const TransferToClientScreen();
-          }
-          return TransferConfirmScreen(draft: draft);
-        },
-      ),
-      GoRoute(
-        path: '/services/transfers/client/success',
-        builder: (context, state) => const TransferSuccessScreen(),
       ),
       GoRoute(
         path: '/services/history',

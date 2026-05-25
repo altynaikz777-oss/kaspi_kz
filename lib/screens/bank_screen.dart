@@ -25,7 +25,7 @@ class BankServiceScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             children: [
               _TappableBankCard(
-                onTap: () => context.push('/services/transfers/client'),
+                onTap: () => context.push('/home/transfers/client'),
                 child: _GoldCardRow(
                   balance: formatGoldBalance(user.goldBalance),
                   cardMask: maskCardLast4(user.goldCardLast4),

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Kaspi Flutter Clone
 
 Pure Flutter + Dart rebuild of the Kaspi.kz style app with Firebase-backed flows.
@@ -80,3 +81,6 @@ firebase deploy --only storage
 - `transactions/{uid}/list`
 - `chats/{uid}/messages`
 - `orders`
+=======
+# kaspi_kz
+>>>>>>> ee8fe810b03d68cc058a48edd8abdb4675ad4e30

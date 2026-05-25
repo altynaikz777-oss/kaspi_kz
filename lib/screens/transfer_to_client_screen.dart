@@ -58,7 +58,7 @@ class _TransferToClientScreenState extends ConsumerState<TransferToClientScreen>
       return;
     }
     context.push(
-      '/services/transfers/client/confirm',
+      '/home/transfers/client/confirm',
       extra: TransferDraft(
         amount: _amount,
         recipientUid: recipient.id,
@@ -384,8 +384,7 @@ class _TransferConfirmScreenState extends ConsumerState<TransferConfirmScreen> {
         return;
       }
       ref.read(transferSuccessDraftProvider.notifier).state = widget.draft;
-      context.pop();
-      context.push('/services/transfers/client/success');
+      context.push('/home/transfers/client/confirm/success');
       return;
     } catch (e) {
       if (mounted) {
@@ -534,7 +533,9 @@ class _TransferSuccessScreenState extends ConsumerState<TransferSuccessScreen> {
 
   void _returnToTransfers() {
     ref.read(transferSuccessDraftProvider.notifier).state = null;
-    context.go('/services/transfers');
+    Navigator.of(context).popUntil(
+      (route) => route.settings.name == '/home/transfers',
+    );
   }
 
   @override
